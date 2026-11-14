@@ -21,6 +21,7 @@ function Widget:SetBackdrop(value) self.backdrop = value end
 function Widget:SetBackdropColor(...) self.background = { ... } end
 function Widget:SetBackdropBorderColor(...) self.border = { ... } end
 function Widget:SetTextColor(...) self.color = { ... } end
+function Widget:SetTexture(value) self.texture = value end
 function Widget:SetJustifyH(value) self.justifyH = value end
 function Widget:SetJustifyV(value) self.justifyV = value end
 function Widget:SetText(text)
@@ -35,6 +36,7 @@ function Widget:SetClampedToScreen(value) self.clamped = value end
 function Widget:SetMovable(value) self.movable = value end
 function Widget:EnableMouse(value) self.mouse = value end
 function Widget:RegisterForDrag(...) self.dragButtons = { ... } end
+function Widget:RegisterForClicks(...) self.clickButtons = { ... } end
 function Widget:StartMoving() self.moving = true end
 function Widget:StopMovingOrSizing() self.moving = false end
 function Widget:SetNormalTexture(value) self.normalTexture = value end
@@ -68,6 +70,9 @@ function Widget:CreateFontString(name, _, font)
     widget.font = font
     return widget
 end
+function Widget:CreateTexture(name)
+    return mock.Create("Texture", name, self)
+end
 
 function mock.Create(kind, name, parent, template)
     local widget = setmetatable({
@@ -84,15 +89,33 @@ CreateFrame = mock.Create
 UIParent = mock.Create("Frame", "UIParent")
 UIParent:SetSize(1280, 900)
 UISpecialFrames = {}
-ChatEdit_InsertLink = function() return false end
-hooksecurefunc = function(name, callback)
-    mock.hooks[#mock.hooks + 1] = { name, callback }
-    local original = _G[name]
-    _G[name] = function(...)
+ChatFrameUtil = { InsertLink = function() return false end }
+ChatEdit_InsertLink = ChatFrameUtil.InsertLink
+hooksecurefunc = function(target, name, callback)
+    if type(target) == "string" then
+        target, name, callback = _G, target, name
+    end
+    mock.hooks[#mock.hooks + 1] = { target, name, callback }
+    local original = target[name]
+    target[name] = function(...)
         local result = original(...)
         callback(...)
         return result
     end
 end
+
+GetCursorInfo = function()
+    if mock.cursor then return mock.cursor[1], mock.cursor[2], mock.cursor[3] end
+end
+ClearCursor = function()
+    mock.cursor = nil
+    mock.cursorLocation = nil
+    mock.cursorClears = (mock.cursorClears or 0) + 1
+end
+C_Cursor = { GetCursorItem = function() return mock.cursorLocation end }
+C_Item = {
+    GetItemLink = function(location) return location.link end,
+    GetItemIconByID = function() return 134400 end,
+}
 
 return mock

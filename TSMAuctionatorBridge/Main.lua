@@ -1,6 +1,6 @@
 local ADDON, ns = ...
 local bridge
-ns.VERSION = "0.2.0-alpha"
+ns.VERSION = "0.2.1-alpha"
 ns.Controller = {}
 local Controller = ns.Controller
 local revision = 0
@@ -92,6 +92,57 @@ function Controller:SetOption(key, value)
     return true
 end
 
+function Controller:ItemFromLink(link)
+    if type(link) ~= "string" then return nil end
+    local id = tonumber(link:match("item:(%d+)"))
+    if not id or id < 1 or id >= math.huge then return nil end
+    local icon
+    if type(C_Item) == "table" and type(C_Item.GetItemIconByID) == "function" then
+        local ok, value = pcall(C_Item.GetItemIconByID, id)
+        if ok then icon = value end
+    end
+    return {
+        id = id,
+        link = link,
+        input = link,
+        name = link:match("|h(%[.-%])|h") or ("Item " .. id),
+        icon = icon,
+    }
+end
+
+function Controller:GetCursorItem()
+    local cursorType
+    if type(GetCursorInfo) == "function" then
+        local ok, kind, _, link = pcall(GetCursorInfo)
+        if ok then
+            cursorType = kind
+            if kind and kind ~= "item" then
+                return nil, "Only items can be compared. Your current item is unchanged."
+            end
+            if kind == "item" then
+                local item = self:ItemFromLink(link)
+                if item then return item end
+            end
+        end
+    end
+    -- Newer clients expose an ItemLocation. Read the actual instance link so
+    -- enchant suffixes and bonus IDs are retained, rather than guessing by ID.
+    if type(C_Cursor) == "table" and type(C_Cursor.GetCursorItem) == "function"
+        and type(C_Item) == "table" and type(C_Item.GetItemLink) == "function" then
+        local ok, location = pcall(C_Cursor.GetCursorItem)
+        if ok and location then
+            local linkOK, link = pcall(C_Item.GetItemLink, location)
+            local item = linkOK and self:ItemFromLink(link)
+            if item then return item end
+            return nil, "Item information is not ready. Pick up the item and try again."
+        end
+    end
+    if cursorType == "item" then
+        return nil, "Item information is not ready. Pick up the item and try again."
+    end
+    return nil
+end
+
 -- Shared by the window and the text diagnostic command. No item is probed by
 -- the window's periodic status refresh; lookups happen only on Compare.
 function Controller:Compare(input)
@@ -104,7 +155,7 @@ function Controller:Compare(input)
     elseif input:match("item:%d+") then
         kind, item = "Link", input
     else
-        return { ok = false, message = "Enter an item ID or paste an item link." }
+        return { ok = false, message = "Drop an item from your bags, or enter its item ID." }
     end
 
     local tsmPrice = bridge:GetTSMPrice(kind, item)

@@ -2,7 +2,9 @@ name: Publish Forever release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    paths: ['TSMAuctionatorBridge/TSMAuctionatorBridge.toc']
   release:
     types: [published]
   workflow_dispatch:

@@ -1,11 +1,18 @@
 # Ändringslogg
 
-## Nästa version
+## 0.2.1-alpha — 2026-11-14
 
+- Ny droppruta för föremål från väskan; prisjämförelsen startar direkt.
+- Stöd för både äldre markör-API och Forever-klientens ItemLocation-API.
+- Valda föremåls fullständiga länkar lagras separat från det synliga ID-fältet,
+  så suffix och bonusinformation bevaras vid byte av priskälla.
+- Länkfångsten stöder både ChatFrameUtil.InsertLink och äldre ChatEdit_InsertLink.
+- Ogiltiga släpp och föremål vars länk inte är redo lämnas kvar på markören.
+- Totalt 49 tester, inklusive drag-and-drop, ofullständiga länkar och felaktiga släpp.
 - ZIP-paket får suffixet `-forever.zip` för WowUps Forever-identifiering.
 - Bygget skapar även `release.json` med Forever- och interfaceinformation.
 - En ny releasekörning testar och publicerar ZIP samt metadata som bilagor till
-  en GitHub-release vid en versionstagg, publicerad release eller manuell körning.
+  en GitHub-release vid versionsändring på main, tagg, publicerad release eller manuell körning.
 
 ## 0.2.0-alpha — 2026-11-14
 

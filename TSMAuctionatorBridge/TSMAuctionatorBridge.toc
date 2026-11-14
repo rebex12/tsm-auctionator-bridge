@@ -2,7 +2,7 @@
 ## Title: TSM Auctionator Bridge
 ## Notes: Supplies TSM prices to addons using Auctionator's price API.
 ## Author: rebex12
-## Version: 0.2.0-alpha
+## Version: 0.2.1-alpha
 ## Dependencies: Auctionator
 ## OptionalDeps: TradeSkillMaster
 ## SavedVariables: TSMAuctionatorBridgeDB

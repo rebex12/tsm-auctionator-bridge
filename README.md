@@ -1,6 +1,6 @@
 # TSM Auctionator Bridge
 
-Version **0.2.0-alpha**, för **WoW: Forever**. Ett separat addon som
+Version **0.2.1-alpha**, för **WoW: Forever**. Ett separat addon som
 låter andra addons få priser från TradeSkillMaster när de frågar Auctionators
 pris-API.
 
@@ -11,7 +11,7 @@ pris-API.
 
 1. Installera Forever-versionerna av **Auctionator** och **TradeSkillMaster**.
    TSM måste redan kunna visa prisdata för föremålet på din marknad.
-2. Hämta [det installerbara ZIP-paketet](downloads/TSMAuctionatorBridge-0.2.0-alpha.zip?raw=true)
+2. Hämta [det installerbara ZIP-paketet](downloads/TSMAuctionatorBridge-0.2.1-alpha-forever.zip?raw=true)
    och packa upp det.
 3. Kopiera mappen `TSMAuctionatorBridge` till
    `World of Warcraft/_forever_/Interface/AddOns/`.
@@ -29,7 +29,7 @@ Ett installerbart ZIP med rätt mappstruktur byggs också av
 GitHub Actions sparar det som en nedladdningsbar artifact under
 **Actions → TSM Auctionator Bridge - test and package → vald körning → Artifacts**.
 
-Från nästa publicerade release heter installationspaketet
+Installationspaketet heter
 `TSMAuctionatorBridge-<version>-forever.zip`. Det publiceras som bilaga till en
 GitHub-release tillsammans med `release.json`, så WowUp kan identifiera Forever.
 I WowUp används **Install from URL** med
@@ -53,9 +53,15 @@ genom att dra i rubriken. Stäng med kryssknappen eller Escape.
 - **Use TSM prices for other addons:** aktivera eller stäng av bryggan.
 - **Price source:** välj DBMinBuyout, DBMarket eller DBRecent med knapparna.
 - **Use Auctionator when TSM has no price:** aktivera eller stäng av reservpriset.
-- **Compare an item:** skriv ett item-ID, eller klistra in en itemlänk. Med
-  fokus i fältet kan också shift-klickade länkar fångas från WoWs länkfunktion.
-  Tryck **Compare** eller Enter.
+- **Compare an item:** dra ett föremål från väskan till **Drop an item here**.
+  Jämförelsen körs direkt. Det går också att klicka i rutan med ett föremål på
+  markören eller släppa det på det mindre inmatningsfältet.
+- Föremålets riktiga länk sparas separat, inklusive suffix och bonusinformation.
+  Inmatningsfältet visar dess item-ID. Att byta priskälla behåller det valda
+  föremålet; att skriva ett nytt ID rensar det tidigare valet.
+- Item-ID och fullständiga itemlänkar kan även matas in manuellt, följt av
+  **Compare** eller Enter. En inklistrad text som bara innehåller föremålets
+  namn, exempelvis `[Peacebloom]`, saknar ID och kan inte användas som länk.
 - Tre prisrutor visar **TSM**, **Auctionator** och **Delivered to addons**.
   Resultattexten förklarar vilket pris som används. Byte av föremål eller
   inställning rensar den föregående jämförelsen.
@@ -168,18 +174,19 @@ Bygget skapar både `dist/TSMAuctionatorBridge-<version>-forever.zip` och
 ### Publicera nästa version
 
 Uppdatera versionsnumret i TOC-filen, `Main.lua`, README och ändringsloggen.
-Publicera därefter en git-tagg med samma nummer, till exempel
-`v0.2.1-alpha`. Körningen **Publish Forever release** testar, bygger och
-publicerar ZIP-paketet samt metadata som bilagor till GitHub-releasen. Den kan
+En ändrad TOC-fil på `main` startar **Publish Forever release**, som testar,
+bygger och publicerar ZIP-paketet samt metadata som bilagor till GitHub-releasen.
+En git-tagg med samma nummer, exempelvis `v0.2.1-alpha`, kan också starta den. Den kan
 också startas manuellt från Actions eller när en release publiceras i GitHub.
 Saknade bilagor läggs till i en befintlig release; befintliga filer skrivs inte
 över. Versionsnummer med bindestreck markeras som förhandsversioner när körningen
 skapar releasen.
 
-De 38 testerna omfattar prisval, reservpris, saknad och sen TSM-data, felhantering,
+De 49 testerna omfattar prisval, reservpris, saknad och sen TSM-data, felhantering,
 suffixbevarande, direkt och indirekt rundgång, metadata, sparade inställningar,
 addons laddningshändelser, slashkommandon och det grafiska fönstrets
-knapptryckningar, prisjämförelse, länkfält och stängning. De verifierar logiken
+knapptryckningar, prisjämförelse, länkfält, stängning och drag-and-drop med både
+äldre markör-API och ItemLocation. De verifierar logiken
 med testdubblar; de ersätter inte kontroll i WoW-klienten.
 
 TOC-filen riktar sig till Forever interface **16001**. API-anropen har stämts av

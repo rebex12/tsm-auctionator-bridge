@@ -341,7 +341,7 @@ test("default slash command opens a reusable window without querying prices", fu
     equal(ns.UI.window, window)
     equal(#wow.widgets, widgetCount)
     equal(#UISpecialFrames, 1)
-    equal(#wow.hooks, 1)
+    equal(#wow.hooks, 2)
     TSM_API.GetCustomPriceValue = function(source)
         return source == "DBMinBuyout" and 222 or 333
     end
@@ -402,7 +402,7 @@ test("Enter compares an item and malformed input reports an inline error", funct
     window.compareButton:Click()
     equal(window.lastComparison.ok, false)
     equal(window.prices[1].value:GetText(), "--")
-    equal(window.resultMessage:GetText(), "Enter an item ID or paste an item link.")
+    equal(window.resultMessage:GetText(), "Drop an item from your bags, or enter its item ID.")
 end)
 
 test("UI fallback control handles missing TSM data and unavailable TSM API", function()
@@ -442,13 +442,159 @@ test("shift-click links only populate the focused visible comparison field", fun
     equal(window.input:GetText(), "2447")
     window.input:SetFocus()
     equal(ChatEdit_InsertLink(link), false)
-    equal(window.input:GetText(), link)
+    equal(window.input:GetText(), "2447")
+    equal(window.selectedItem.link, link)
     window.compareButton:Click()
     assert(window.lastComparison.ok)
     window:Hide()
     ChatEdit_InsertLink("item:2449")
-    equal(window.input:GetText(), link)
+    equal(window.input:GetText(), "2447")
+    equal(window.selectedItem.link, link)
     window:Show()
+end)
+
+test("current chat-link API preserves the item while keeping the visible field numeric", function()
+    local window = ns.UI.window
+    local link = "|cff1eff00|Hitem:15210:0:0:0:0:0:23:0|h[Sword of Testing]|h|r"
+    window.input:SetFocus()
+    equal(ChatFrameUtil.InsertLink(link), false)
+    equal(window.selectedItem.link, link)
+    equal(window.input:GetText(), "15210")
+    equal(window.dropTitle:GetText(), "[Sword of Testing]")
+end)
+
+test("dropping an item compares automatically and preserves its full instance link", function()
+    local window = ns.UI.window
+    local link = "|cff1eff00|Hitem:15210:0:0:0:0:0:23:0|h[Sword of Testing]|h|r"
+    local convert = TSM_API.ToItemString
+    local seen = 0
+    TSM_API.ToItemString = function(value)
+        equal(value, link)
+        seen = seen + 1
+        return "i:15210::suffix:23"
+    end
+    local clears = wow.cursorClears or 0
+    window.input:ClearFocus()
+    wow.cursor = { "item", 15210, link }
+    window.dropZone:RunScript("OnReceiveDrag")
+    equal(window.selectedItem.link, link)
+    equal(window.input:GetText(), "15210")
+    equal(window.lastComparison.input, link)
+    equal(window.prices[3].value:GetText(), "0g 3s 33c")
+    assert(seen >= 1)
+    equal(wow.cursor, nil)
+    equal(wow.cursorClears, clears + 1)
+    equal(window.input:HasFocus(), false)
+    TSM_API.ToItemString = convert
+end)
+
+test("clicking the drop zone with a held item compares without an extra button press", function()
+    local window = ns.UI.window
+    wow.cursor = { "item", 2447, "item:2447:0" }
+    window.dropZone:Click()
+    equal(window.selectedItem.id, 2447)
+    equal(window.lastComparison.ok, true)
+    local result = window.lastComparison
+    window.dropZone:Click() -- Some clients also send OnClick after OnReceiveDrag.
+    equal(window.lastComparison, result)
+end)
+
+test("the input field and its border also accept held items", function()
+    local window = ns.UI.window
+    wow.cursor = { "item", 2449, "item:2449:0" }
+    window.input:RunScript("OnReceiveDrag")
+    equal(window.selectedItem.id, 2449)
+    equal(window.lastComparison.ok, true)
+    wow.cursor = { "item", 2447, "item:2447:0" }
+    window.inputPanel:RunScript("OnMouseDown", "LeftButton")
+    equal(window.selectedItem.id, 2447)
+    equal(window.lastComparison.ok, true)
+end)
+
+test("dropping spells or empty cursors does not consume them or replace the selected item", function()
+    local window = ns.UI.window
+    local selection = window.selectedItem
+    local clears = wow.cursorClears
+    wow.cursor = { "spell", 123, "spell:123" }
+    window.dropZone:RunScript("OnReceiveDrag")
+    equal(window.selectedItem, selection)
+    equal(wow.cursor[1], "spell")
+    equal(wow.cursorClears, clears)
+    assert(window.resultMessage:GetText():find("Only items", 1, true))
+    wow.cursor = nil
+    window.dropZone:Click()
+    equal(window.selectedItem, selection)
+    equal(wow.cursorClears, clears)
+end)
+
+test("an uncached item link leaves the held item available for another try", function()
+    local window = ns.UI.window
+    local selection = window.selectedItem
+    local clears = wow.cursorClears
+    wow.cursor = { "item", 15210 }
+    window.dropZone:RunScript("OnReceiveDrag")
+    equal(window.selectedItem, selection)
+    equal(wow.cursor[1], "item")
+    equal(wow.cursorClears, clears)
+    assert(window.resultMessage:GetText():find("not ready", 1, true))
+    wow.cursor = nil
+end)
+
+test("modern ItemLocation cursor API works without the legacy cursor function", function()
+    local window = ns.UI.window
+    local legacy = GetCursorInfo
+    GetCursorInfo = nil
+    local link = "|Hitem:15210:0:0:0:0:0:23:0|h[Test Sword]|h"
+    wow.cursorLocation = { link = link }
+    window.dropZone:RunScript("OnReceiveDrag")
+    equal(window.selectedItem.link, link)
+    equal(window.lastComparison.input, link)
+    equal(wow.cursorLocation, nil)
+    GetCursorInfo = legacy
+end)
+
+test("modern cursor location recovers a missing legacy link", function()
+    local window = ns.UI.window
+    local link = "item:15210:0:0:0:0:0:23:0"
+    wow.cursor = { "item", 15210 }
+    wow.cursorLocation = { link = link }
+    window.dropZone:RunScript("OnReceiveDrag")
+    equal(window.selectedItem.link, link)
+    equal(window.lastComparison.input, link)
+    equal(wow.cursor, nil)
+end)
+
+test("changing the price source keeps the selected item's instance link", function()
+    local window = ns.UI.window
+    local link = window.selectedItem.link
+    window.sources[1]:Click()
+    equal(window.lastComparison, nil)
+    equal(window.selectedItem.link, link)
+    window.compareButton:Click()
+    equal(window.lastComparison.input, link)
+end)
+
+test("typing another ID clears the dropped selection and queries the newly typed item", function()
+    local window = ns.UI.window
+    local original = TSM_API.GetCustomPriceValue
+    TSM_API.GetCustomPriceValue = function(_, item)
+        equal(item, "i:2449")
+        return 999
+    end
+    window.input:SetText("2449")
+    equal(window.selectedItem, nil)
+    equal(window.dropTitle:GetText(), "Drop an item here")
+    window.compareButton:Click()
+    equal(window.prices[3].value:GetText(), "0g 9s 99c")
+    TSM_API.GetCustomPriceValue = original
+end)
+
+test("plain clipboard display names explain how to select an item", function()
+    local window = ns.UI.window
+    window.input:SetText("[Peacebloom]")
+    window.compareButton:Click()
+    equal(window.lastComparison.ok, false)
+    equal(window.resultMessage:GetText(), "Drop an item from your bags, or enter its item ID.")
 end)
 
 test("window close and Escape release focus; small screens scale the window", function()
@@ -469,6 +615,7 @@ end)
 
 test("external slash setting changes are reflected in the open window", function()
     local window = ns.UI.window
+    window.sources[3]:Click()
     window.input:SetText("2447")
     window.compareButton:Click()
     SlashCmdList.TSMAUCTIONATORBRIDGE("source dbminbuyout")

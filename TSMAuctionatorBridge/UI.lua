@@ -1,7 +1,8 @@
 local _, ns = ...
 ns.UI = {}
 local UI = ns.UI
-local WIDTH, HEIGHT = 660, 654
+local WIDTH, HEIGHT = 660, 726
+local COMPARE_OFFSET = 72
 local colors = {
     background = { 0.035, 0.045, 0.065, 0.98 },
     panel = { 0.07, 0.09, 0.12, 1 },
@@ -88,7 +89,7 @@ local function sourceCard(parent, key, title, description, x, onClick)
 end
 
 local function priceCard(parent, title, x, accent)
-    local card = panel(parent, 196, 80, x, 393)
+    local card = panel(parent, 196, 80, x, 393 + COMPARE_OFFSET)
     card.title = label(card, title, 12, 12, 172, nil, colors.muted)
     card.value = label(card, "--", 12, 38, 172, "GameFontHighlight", accent or colors.text)
     card.value:SetHeight(30)
@@ -156,7 +157,32 @@ function UI.Create(controller)
     end)
 
     label(window, "COMPARE AN ITEM", 26, 327, 570, nil, colors.muted)
-    local inputPanel = panel(window, 474, 34, 24, 348)
+    window.dropZone = CreateFrame("Button", nil, window, "BackdropTemplate")
+    window.dropZone:SetPoint("TOPLEFT", window, "TOPLEFT", 24, -348)
+    window.dropZone:SetSize(612, 60)
+    window.dropZone:SetBackdrop(backdrop)
+    paint(window.dropZone, colors.selected, colors.accent)
+    window.dropZone:RegisterForClicks("LeftButtonUp")
+    window.dropIcon = window.dropZone:CreateTexture(nil, "ARTWORK")
+    window.dropIcon:SetPoint("TOPLEFT", window.dropZone, "TOPLEFT", 12, -12)
+    window.dropIcon:SetSize(36, 36)
+    window.dropIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    window.dropTitle = label(window.dropZone, "Drop an item here", 62, 12, 532, "GameFontHighlight", colors.accent)
+    window.dropTitle:SetHeight(18)
+    window.dropHint = label(window.dropZone, "Drag from your bags to compare automatically.", 62, 35, 532, nil, colors.muted)
+    window.dropHint:SetHeight(18)
+    window.dropZone:SetScript("OnReceiveDrag", function() window:AcceptCursorItem() end)
+    window.dropZone:SetScript("OnClick", function() window:AcceptCursorItem() end)
+    window.dropZone:SetScript("OnEnter", function(self) paint(self, colors.selected, colors.success) end)
+    window.dropZone:SetScript("OnLeave", function(self) paint(self, colors.selected, colors.accent) end)
+
+    local inputPanel = panel(window, 474, 34, 24, 348 + COMPARE_OFFSET)
+    window.inputPanel = inputPanel
+    inputPanel:EnableMouse(true)
+    inputPanel:SetScript("OnReceiveDrag", function() window:AcceptCursorItem() end)
+    inputPanel:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then window:AcceptCursorItem() end
+    end)
     window.input = CreateFrame("EditBox", nil, inputPanel)
     window.input:SetPoint("TOPLEFT", inputPanel, "TOPLEFT", 10, -1)
     window.input:SetSize(454, 32)
@@ -165,14 +191,19 @@ function UI.Create(controller)
     window.input:SetMaxLetters(1024)
     window.input:SetTextInsets(0, 0, 0, 0)
     window.input:SetText("")
-    window.placeholder = label(inputPanel, "Item ID or paste an item link", 10, 11, 445, nil, colors.muted)
+    window.placeholder = label(inputPanel, "Optional: item ID or full item link", 10, 11, 445, nil, colors.muted)
     window.input:SetScript("OnTextChanged", function(self)
         window.placeholder:SetShown(self:GetText() == "")
+        if not window.updatingInput then window:ClearSelectedItem() end
         window:ClearComparison()
+    end)
+    window.input:SetScript("OnReceiveDrag", function() window:AcceptCursorItem() end)
+    window.input:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then window:AcceptCursorItem() end
     end)
     window.input:SetScript("OnEnterPressed", function(self) self:ClearFocus(); window:Compare() end)
     window.input:SetScript("OnEscapePressed", function() window:Hide() end)
-    window.compareButton = action(window, "Compare", 126, 510, 351, function()
+    window.compareButton = action(window, "Compare", 126, 510, 351 + COMPARE_OFFSET, function()
         window.input:ClearFocus()
         window:Compare()
     end)
@@ -181,25 +212,61 @@ function UI.Create(controller)
         priceCard(window, "Auctionator", 232),
         priceCard(window, "Delivered to addons", 440, colors.accent),
     }
-    window.resultMessage = label(window, "Enter an item above to compare prices.", 26, 485, 608, nil, colors.muted)
+    window.resultMessage = label(window, "Drop an item above to compare prices.", 26, 485 + COMPARE_OFFSET, 608, nil, colors.muted)
     window.resultMessage:SetHeight(34)
     label(window, "Changes are saved automatically. Reopen the receiving addon's window to refresh cached prices.",
-        26, 532, 608, nil, colors.muted):SetHeight(34)
-    window.stats = label(window, "", 26, 580, 608, nil, colors.muted)
+        26, 532 + COMPARE_OFFSET, 608, nil, colors.muted):SetHeight(34)
+    window.stats = label(window, "", 26, 580 + COMPARE_OFFSET, 608, nil, colors.muted)
     window.stats:SetHeight(32)
-    window.error = label(window, "", 26, 618, 608, nil, colors.error)
+    window.error = label(window, "", 26, 618 + COMPARE_OFFSET, 608, nil, colors.error)
     window.error:SetHeight(22)
 
     function window:ClearComparison()
         self.lastComparison = nil
         for _, card in ipairs(self.prices) do card.value:SetText("--") end
-        self.resultMessage:SetText("Enter an item above to compare prices.")
+        self.resultMessage:SetText("Drop an item above to compare prices.")
         self.resultMessage:SetTextColor(unpackColor(colors.muted))
+    end
+
+    function window:ClearSelectedItem()
+        self.selectedItem = nil
+        self.dropIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+        self.dropTitle:SetText("Drop an item here")
+        self.dropHint:SetText("Drag from your bags to compare automatically.")
+    end
+
+    function window:SelectItem(item)
+        self.updatingInput = true
+        self.input:SetText(tostring(item.id))
+        self.updatingInput = false
+        -- The visible edit box contains an ID. The full instance link remains
+        -- separate and authoritative, regardless of text formatting or focus.
+        self.selectedItem = item
+        self.dropIcon:SetTexture(item.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+        self.dropTitle:SetText(item.name)
+        self.dropHint:SetText("Item " .. item.id .. " - drop another item to replace it.")
+        self.input:SetCursorPosition(0)
+    end
+
+    function window:AcceptCursorItem()
+        local item, message = controller:GetCursorItem()
+        if not item then
+            if message then
+                self.resultMessage:SetText(message)
+                self.resultMessage:SetTextColor(unpackColor(colors.warning))
+            end
+            return false
+        end
+        self:SelectItem(item)
+        self.input:ClearFocus()
+        if type(ClearCursor) == "function" then ClearCursor() end
+        self:Compare()
+        return true
     end
 
     function window:Compare()
         self:Refresh()
-        local result = controller:Compare(self.input:GetText())
+        local result = controller:Compare(self.selectedItem and self.selectedItem.input or self.input:GetText())
         self.lastComparison = result
         if result.ok then
             self.prices[1].value:SetText(controller:FormatPrice(result.tsmPrice))
@@ -251,15 +318,21 @@ function UI.Create(controller)
     if type(UISpecialFrames) == "table" then
         table.insert(UISpecialFrames, "TSMAuctionatorBridgeWindow")
     end
-    -- Add a passive hook once. Do not replace ChatEdit_InsertLink or change its
-    -- return value: only take the link while this comparison field has focus.
-    if type(hooksecurefunc) == "function" and type(ChatEdit_InsertLink) == "function" then
-        hooksecurefunc("ChatEdit_InsertLink", function(link)
-            if window:IsShown() and window.input:HasFocus() and type(link) == "string" then
-                window.input:SetText(link)
-                window.input:SetCursorPosition(0)
-            end
-        end)
+    -- Hook both the current API and the deprecated global alias. An alias can
+    -- still point to the old function after its namespace entry has been hooked.
+    local function acceptLink(link)
+        if window:IsShown() and window.input:HasFocus() then
+            local item = controller:ItemFromLink(link)
+            if item then window:SelectItem(item) end
+        end
+    end
+    if type(hooksecurefunc) == "function" then
+        if type(ChatFrameUtil) == "table" and type(ChatFrameUtil.InsertLink) == "function" then
+            hooksecurefunc(ChatFrameUtil, "InsertLink", acceptLink)
+        end
+        if type(ChatEdit_InsertLink) == "function" then
+            hooksecurefunc("ChatEdit_InsertLink", acceptLink)
+        end
     end
     return window
 end
