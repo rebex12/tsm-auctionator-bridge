@@ -29,6 +29,14 @@ Ett installerbart ZIP med rätt mappstruktur byggs också av
 GitHub Actions sparar det som en nedladdningsbar artifact under
 **Actions → TSM Auctionator Bridge - test and package → vald körning → Artifacts**.
 
+Från nästa publicerade release heter installationspaketet
+`TSMAuctionatorBridge-<version>-forever.zip`. Det publiceras som bilaga till en
+GitHub-release tillsammans med `release.json`, så WowUp kan identifiera Forever.
+I WowUp används **Install from URL** med
+`https://github.com/rebex12/tsm-auctionator-bridge` efter att en sådan release
+har publicerats. En ZIP-fil som enbart ligger i repots kodmapp räcker inte för
+installation från repolänken.
+
 ## Standardbeteende
 
 - Bryggan är aktiverad och använder **DBMinBuyout**.
@@ -153,6 +161,20 @@ ett tecken på att mottagaren använder en annan läsväg eller egen cache.
 lua5.1 tests/run.lua
 python3 scripts/package.py
 ```
+
+Bygget skapar både `dist/TSMAuctionatorBridge-<version>-forever.zip` och
+`dist/release.json`.
+
+### Publicera nästa version
+
+Uppdatera versionsnumret i TOC-filen, `Main.lua`, README och ändringsloggen.
+Publicera därefter en git-tagg med samma nummer, till exempel
+`v0.2.1-alpha`. Körningen **Publish Forever release** testar, bygger och
+publicerar ZIP-paketet samt metadata som bilagor till GitHub-releasen. Den kan
+också startas manuellt från Actions eller när en release publiceras i GitHub.
+Saknade bilagor läggs till i en befintlig release; befintliga filer skrivs inte
+över. Versionsnummer med bindestreck markeras som förhandsversioner när körningen
+skapar releasen.
 
 De 38 testerna omfattar prisval, reservpris, saknad och sen TSM-data, felhantering,
 suffixbevarande, direkt och indirekt rundgång, metadata, sparade inställningar,

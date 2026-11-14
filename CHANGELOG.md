@@ -1,5 +1,12 @@
 # Ändringslogg
 
+## Nästa version
+
+- ZIP-paket får suffixet `-forever.zip` för WowUps Forever-identifiering.
+- Bygget skapar även `release.json` med Forever- och interfaceinformation.
+- En ny releasekörning testar och publicerar ZIP samt metadata som bilagor till
+  en GitHub-release vid en versionstagg, publicerad release eller manuell körning.
+
 ## 0.2.0-alpha — 2026-11-14
 
 - Nytt grafiskt fönster som öppnas med `/tsmbridge` eller `/tsmbridge ui`.
